@@ -1,6 +1,6 @@
 
 
-# Mp3Sorter
+# Mp3Writer
 
 **Mp3Sorter** is a Java desktop application that helps organize and transfer your MP3 files. It copies songs from a source folder (organized by albums/subfolders) to a destination folder, writing the files in **track number order** to support MP3 players that ignore metadata and play files in the order they were written to disk.
 
