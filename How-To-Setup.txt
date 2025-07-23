@@ -1,0 +1,66 @@
+===========================
+HOW TO PACKAGE Mp3Sorter APP
+===========================
+
+1. Prerequisites:
+   - macOS system
+   - JDK 14 or later installed
+   - Your compiled JAR file (e.g., mp3_writer.jar)
+   - Your app icon file in .icns format (e.g., app.icns)
+
+2. Folder Setup:
+   Place your files like this inside your project folder:
+
+       /your-project-folder/
+         ├── mp3_writer.jar
+         ├── app.icns
+
+3. Clean old builds (optional):
+   If you have a previous build, remove it by running:
+
+       rm -rf out/Mp3Sorter.app
+
+4. Package the app using jpackage:
+   Open Terminal, navigate to your project folder, then run:
+
+       jpackage \
+         --type app-image \
+         --name Mp3Sorter \
+         --input . \
+         --main-jar mp3_writer.jar \
+         --icon app.icns \
+         --dest out
+
+5. Result:
+   - The app bundle will be located in the 'out' folder as Mp3Sorter.app
+   - Double-click Mp3Sorter.app to launch your app
+
+6. Optional: Create a .dmg installer
+   Run:
+
+       jpackage \
+         --type dmg \
+         --name Mp3Sorter \
+         --input . \
+         --main-jar mp3_writer.jar \
+         --icon app.icns \
+         --dest out
+
+   This will create 'out/Mp3Sorter-1.0.dmg' for easy installation.
+
+7. Troubleshooting:
+   - If you get extended attribute errors, run:
+
+         xattr -rc .
+
+   - If the app already exists, delete the old one first:
+
+         rm -rf out/Mp3Sorter.app
+
+8. Notes:
+   - File names are case-sensitive; ensure --main-jar matches your JAR file name exactly.
+   - Build outside iCloud folders to avoid metadata issues.
+
+---
+
+Happy coding!
