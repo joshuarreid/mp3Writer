@@ -1,27 +1,29 @@
-===========================
+============================
 HOW TO PACKAGE Mp3Sorter APP
-===========================
+============================
 
-1. Prerequisites:
+1. ✅ Prerequisites:
    - macOS system
    - JDK 14 or later installed
-   - Your compiled JAR file (e.g., mp3_writer.jar)
-   - Your app icon file in .icns format (e.g., app.icns)
+   - Your compiled JAR file (e.g., `mp3_writer.jar`)
+   - Your app icon in `.icns` format (e.g., `app.icns`)
 
-2. Folder Setup:
-   Place your files like this inside your project folder:
+2. 📁 Folder Setup:
+   Inside your project directory, organize your files like this:
 
        /your-project-folder/
          ├── mp3_writer.jar
          ├── app.icns
 
-3. Clean old builds (optional):
-   If you have a previous build, remove it by running:
+3. 🧼 Clean Old Builds (Optional):
+   If you’ve already built the app before, clear the old version with:
 
        rm -rf out/Mp3Sorter.app
 
-4. Package the app using jpackage:
-   Open Terminal, navigate to your project folder, then run:
+4. 📦 Package the App Using `jpackage`:
+   In Terminal, navigate to your project folder:
+
+   Then run:
 
        jpackage \
          --type app-image \
@@ -31,12 +33,12 @@ HOW TO PACKAGE Mp3Sorter APP
          --icon app.icns \
          --dest out
 
-5. Result:
-   - The app bundle will be located in the 'out' folder as Mp3Sorter.app
-   - Double-click Mp3Sorter.app to launch your app
+5. 🧪 Result:
+   - The `.app` bundle will appear in the `out` folder as `Mp3Sorter.app`
+   - You can double-click `Mp3Sorter.app` to launch your app
 
-6. Optional: Create a .dmg installer
-   Run:
+6. 💿 Optional: Create a `.dmg` Installer:
+   To generate a disk image:
 
        jpackage \
          --type dmg \
@@ -46,21 +48,23 @@ HOW TO PACKAGE Mp3Sorter APP
          --icon app.icns \
          --dest out
 
-   This will create 'out/Mp3Sorter-1.0.dmg' for easy installation.
+   This creates `out/Mp3Sorter-1.0.dmg` for easy distribution.
 
-7. Troubleshooting:
-   - If you get extended attribute errors, run:
+7. 🛠 Troubleshooting:
+   - If you see errors about *extended attributes*, run:
 
          xattr -rc .
 
-   - If the app already exists, delete the old one first:
+   - If the app already exists, delete it first:
 
          rm -rf out/Mp3Sorter.app
 
-8. Notes:
-   - File names are case-sensitive; ensure --main-jar matches your JAR file name exactly.
-   - Build outside iCloud folders to avoid metadata issues.
+   - If using iCloud Drive, avoid syncing issues by building **outside** iCloud folders if possible.
+
+8. 📝 Notes:
+   - File names are case-sensitive. Ensure `--main-jar` matches your `.jar` filename exactly.
+   - If you're using an iCloud-synced folder, temporary `.icloud` placeholders may cause issues — move your project to a local folder like `~/Documents` if problems persist.
 
 ---
 
-Happy coding!
+🎉 **You're all set! Package it, test it, and ship it.** Happy coding!
