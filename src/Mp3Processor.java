@@ -1,0 +1,112 @@
+import com.mpatric.mp3agic.Mp3File;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+public class Mp3Processor {
+
+    public static void processSelectedAlbums(List<File> albums, File destinationRoot,
+                                             Consumer<String> log,
+                                             BiConsumer<Integer, String> progressUpdater) throws Exception {
+        int totalAlbums = albums.size();
+        int processed = 0;
+
+        for (File album : albums) {
+            processSingleFolder(album, new File(destinationRoot, album.getName()), log, progressUpdater);
+            processed++;
+            int progress = (int) (((double) processed / totalAlbums) * 100);
+            progressUpdater.accept(progress, "Processing albums: " + progress + "%");
+        }
+    }
+
+    public static void processSingleFolder(File sourceFolder, File destinationFolder,
+                                           Consumer<String> log,
+                                           BiConsumer<Integer, String> progressUpdater) throws Exception {
+        File[] mp3Files = sourceFolder.listFiles(f -> f.getName().toLowerCase().endsWith(".mp3"));
+        if (mp3Files == null || mp3Files.length == 0) {
+            log.accept("(No MP3 files in: " + sourceFolder.getName() + ")");
+            return;
+        }
+
+        List<Track> tracks = new ArrayList<>();
+        for (File mp3 : mp3Files) {
+            try {
+                Mp3File mp3file = new Mp3File(mp3);
+                int trackNumber = getTrackNumber(mp3file);
+                tracks.add(new Track(trackNumber, mp3));
+            } catch (Exception e) {
+                log.accept("⚠️ Skipping: " + mp3.getName() + " - " + e.getMessage());
+            }
+        }
+
+        tracks.sort(Comparator.comparingInt(t -> t.trackNumber));
+
+        if (!destinationFolder.exists()) {
+            destinationFolder.mkdirs();
+        }
+
+        int totalTracks = tracks.size();
+        int copied = 0;
+        for (Track track : tracks) {
+            String newName = track.file.getName();
+            File destFile = new File(destinationFolder, newName);
+            Files.copy(track.file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            log.accept("✅ Copied: " + destinationFolder.getName() + "/" + newName);
+
+            copied++;
+            int progress = (int) (((double) copied / totalTracks) * 100);
+            progressUpdater.accept(progress, "Copying tracks: " + progress + "%");
+        }
+    }
+
+    public static long getFolderSize(File folder) {
+        long size = 0;
+        File[] files = folder.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                if (f.isFile()) {
+                    size += f.length();
+                } else if (f.isDirectory()) {
+                    size += getFolderSize(f);
+                }
+            }
+        }
+        return size;
+    }
+
+    private static int getTrackNumber(Mp3File mp3) {
+        if (mp3.hasId3v2Tag()) {
+            String track = mp3.getId3v2Tag().getTrack();
+            return parseTrackNumber(track);
+        } else if (mp3.hasId3v1Tag()) {
+            String track = mp3.getId3v1Tag().getTrack();
+            return parseTrackNumber(track);
+        }
+        return 0;
+    }
+
+    private static int parseTrackNumber(String track) {
+        if (track == null) return 0;
+        String[] parts = track.split("/");
+        String num = parts[0].replaceAll("\\D+", "");
+        try {
+            return Integer.parseInt(num);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private static class Track {
+        int trackNumber;
+        File file;
+
+        Track(int trackNumber, File file) {
+            this.trackNumber = trackNumber;
+            this.file = file;
+        }
+    }
+}

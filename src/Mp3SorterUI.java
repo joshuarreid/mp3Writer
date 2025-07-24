@@ -1,107 +1,113 @@
-import com.mpatric.mp3agic.*;
-
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
-import java.nio.file.*;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * MP3 Sorter Swing UI
- * -------------------
- * After selecting a source folder, the UI scans for immediate child subfolders (albums)
- * and displays them in a scrollable checklist. You can check/uncheck which albums to include
- * in the copy/sort operation. All are selected by default.
- *
- * MP3s inside each selected album are read for track # (ID3v2 -> ID3v1 fallback), sorted by track,
- * and copied to the destination in write order, renamed as "NN - originalFileName.mp3".
- *
- * External dependency: mp3agic (https://github.com/mpatric/mp3agic)
- * Maven: com.mpatric:mp3agic:0.9.1
- */
 public class Mp3SorterUI extends JFrame {
 
-    // Path fields (read-only so user can copy them)
     private JTextField sourceField;
     private JTextField destinationField;
 
-    // Log output
-    private JTextArea logArea;
+    private JTextField usbSizeField;
+    private JButton setSizeButton;
 
-    // Album selection components
-    private JPanel albumPanel;                    // Holds the checkboxes
-    private JScrollPane albumScroll;              // Scroll container for album panel
-    private final java.util.List<JCheckBox> albumChecks = new ArrayList<>();
-    private final Map<JCheckBox, File> albumMap = new HashMap<>();
+    private AlbumSelectionPanel albumSelectionPanel;
+
+    private JTextArea logArea;
+    private JProgressBar progressBar;
+
+    private long maxSizeBytes = 256L * 1024 * 1024;
 
     public Mp3SorterUI() {
-        setTitle("MP3 Sorter by Track #");
+        super("MP3 Sorter by Track #");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(700, 500);
+        setSize(700, 600);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // --- Top input controls ----------------------------------------------------------
-        JPanel inputPanel = new JPanel(new GridLayout(3, 1, 10, 10));
-        inputPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        // Top Panel: inputs + buttons
+        JPanel inputPanel = new JPanel(new GridLayout(4, 1, 10, 10));
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
 
+        // Source folder input + browse button
         sourceField = new JTextField();
         sourceField.setEditable(false);
-        destinationField = new JTextField();
-        destinationField.setEditable(false);
-
         JButton browseSource = new JButton("Browse Source");
         browseSource.addActionListener(e -> chooseSourceFolder());
-
-        JButton browseDest = new JButton("Browse Destination");
-        browseDest.addActionListener(e -> chooseFolder(destinationField));
-
-        JPanel sourceRow = new JPanel(new BorderLayout(5, 5));
+        JPanel sourceRow = new JPanel(new BorderLayout(5,5));
         sourceRow.add(new JLabel("Source Folder:"), BorderLayout.WEST);
         sourceRow.add(sourceField, BorderLayout.CENTER);
         sourceRow.add(browseSource, BorderLayout.EAST);
 
-        JPanel destRow = new JPanel(new BorderLayout(5, 5));
+        // Destination folder input + browse button
+        destinationField = new JTextField();
+        destinationField.setEditable(false);
+        JButton browseDest = new JButton("Browse Destination");
+        browseDest.addActionListener(e -> chooseFolder(destinationField));
+        JPanel destRow = new JPanel(new BorderLayout(5,5));
         destRow.add(new JLabel("Destination Folder:"), BorderLayout.WEST);
         destRow.add(destinationField, BorderLayout.CENTER);
         destRow.add(browseDest, BorderLayout.EAST);
 
+        // USB size limit input + set button
+        usbSizeField = new JTextField("256", 6);
+        setSizeButton = new JButton("Set Size");
+        setSizeButton.addActionListener(e -> setUsbSizeLimit());
+        JPanel usbRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        usbRow.add(new JLabel("USB Size Limit (MB):"));
+        usbRow.add(usbSizeField);
+        usbRow.add(setSizeButton);
+
+        // Start button
         JButton startButton = new JButton("Start Transfer");
         startButton.addActionListener(this::startSorting);
 
         inputPanel.add(sourceRow);
         inputPanel.add(destRow);
+        inputPanel.add(usbRow);
         inputPanel.add(startButton);
 
         add(inputPanel, BorderLayout.NORTH);
 
-        // --- Album selection area -------------------------------------------------------
-        albumPanel = new JPanel();
-        albumPanel.setLayout(new BoxLayout(albumPanel, BoxLayout.Y_AXIS));
-        albumPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        albumScroll = new JScrollPane(albumPanel);
+        // Album selection panel
+        albumSelectionPanel = new AlbumSelectionPanel(maxSizeBytes);
+        JScrollPane albumScroll = new JScrollPane(albumSelectionPanel);
         albumScroll.setBorder(BorderFactory.createTitledBorder("Select Albums to Include"));
         albumScroll.setPreferredSize(new Dimension(300, 200));
+        add(albumScroll, BorderLayout.WEST);
 
-        // --- Log area -------------------------------------------------------------------
+        // Log area + progress bar
         logArea = new JTextArea();
         logArea.setEditable(false);
         JScrollPane logScroll = new JScrollPane(logArea);
         logScroll.setBorder(BorderFactory.createTitledBorder("Log"));
 
-        // Use a vertical split pane: top = albums, bottom = log
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, albumScroll, logScroll);
-        split.setResizeWeight(0.4); // allocate 40% to album list initially
-        add(split, BorderLayout.CENTER);
+        progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(logScroll, BorderLayout.CENTER);
+        bottomPanel.add(progressBar, BorderLayout.SOUTH);
+
+        add(bottomPanel, BorderLayout.CENTER);
     }
 
-    /**
-     * Choose a generic folder (used for destination).
-     */
+    private void setUsbSizeLimit() {
+        String text = usbSizeField.getText().trim();
+        try {
+            long mb = Long.parseLong(text);
+            if (mb <= 0) throw new NumberFormatException();
+            maxSizeBytes = mb * 1024L * 1024L;
+            albumSelectionPanel.setMaxSizeBytes(maxSizeBytes);
+            log("USB size limit set to " + mb + " MB");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Please enter a positive valid number for USB size limit.",
+                    "Invalid Input", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void chooseFolder(JTextField targetField) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -113,9 +119,6 @@ public class Mp3SorterUI extends JFrame {
         }
     }
 
-    /**
-     * Choose the source folder, then populate the album checkbox list.
-     */
     private void chooseSourceFolder() {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -124,34 +127,8 @@ public class Mp3SorterUI extends JFrame {
             File selected = chooser.getSelectedFile();
             sourceField.setText(selected.getAbsolutePath());
             sourceField.setToolTipText(selected.getAbsolutePath());
-            populateAlbumList(selected);
+            albumSelectionPanel.populate(selected);
         }
-    }
-
-    /**
-     * Scan the source directory for immediate child subfolders and create checkboxes for each.
-     * All checkboxes are selected by default.
-     */
-    private void populateAlbumList(File sourceDir) {
-        albumPanel.removeAll();
-        albumChecks.clear();
-        albumMap.clear();
-
-        File[] subfolders = sourceDir.listFiles(File::isDirectory);
-        if (subfolders == null || subfolders.length == 0) {
-            JLabel none = new JLabel("(No subfolders found)");
-            albumPanel.add(none);
-        } else {
-            for (File sub : Objects.requireNonNull(subfolders)) {
-                JCheckBox cb = new JCheckBox(sub.getName(), true);
-                cb.setAlignmentX(Component.LEFT_ALIGNMENT);
-                albumChecks.add(cb);
-                albumMap.put(cb, sub);
-                albumPanel.add(cb);
-            }
-        }
-        albumPanel.revalidate();
-        albumPanel.repaint();
     }
 
     private void startSorting(ActionEvent e) {
@@ -167,17 +144,10 @@ public class Mp3SorterUI extends JFrame {
             return;
         }
 
-        // Gather selected albums
-        List<File> selectedAlbums = new ArrayList<>();
-        for (JCheckBox cb : albumChecks) {
-            if (cb.isSelected()) {
-                File f = albumMap.get(cb);
-                if (f != null) selectedAlbums.add(f);
-            }
-        }
+        List<File> selectedAlbums = albumSelectionPanel.getSelectedAlbums();
 
-        if (albumChecks.size() > 0 && selectedAlbums.isEmpty()) {
-            log("❗ No albums selected. Nothing to do.");
+        if (!albumSelectionPanel.hasAlbums() && selectedAlbums.isEmpty()) {
+            log("❗ No albums selected or no albums found. Nothing to do.");
             return;
         }
 
@@ -187,96 +157,38 @@ public class Mp3SorterUI extends JFrame {
             log("❌ Invalid source folder.");
             return;
         }
-        if (!dest.exists()) {
-            boolean ok = dest.mkdirs();
-            if (!ok) {
-                log("❌ Could not create destination folder.");
-                return;
-            }
+        if (!dest.exists() && !dest.mkdirs()) {
+            log("❌ Could not create destination folder.");
+            return;
         }
 
         new Thread(() -> {
             try {
-                if (albumChecks.isEmpty()) {
-                    // No subfolders - process the root itself
+                progressBar.setValue(0);
+                progressBar.setString("Starting...");
+
+                if (!albumSelectionPanel.hasAlbums()) {
                     log("ℹ️ No subfolders detected; processing root files.");
-                    processSingleFolder(source, dest);
+                    Mp3Processor.processSingleFolder(source, dest, this::log, this::updateProgress);
                 } else {
-                    processSelectedAlbums(selectedAlbums, dest);
+                    Mp3Processor.processSelectedAlbums(selectedAlbums, dest, this::log, this::updateProgress);
                 }
                 log("✅ Done.");
+                progressBar.setValue(100);
+                progressBar.setString("Done");
             } catch (Exception ex) {
                 ex.printStackTrace();
                 log("❌ Error: " + ex.getMessage());
+                progressBar.setString("Error");
             }
         }).start();
     }
 
-    /**
-     * Process only the user-selected album folders.
-     */
-    private void processSelectedAlbums(List<File> albums, File destinationRoot) throws Exception {
-        for (File album : albums) {
-            processSingleFolder(album, new File(destinationRoot, album.getName()));
-        }
-    }
-
-    /**
-     * Process a single folder (reads MP3s, sorts by track #, copies to destinationFolder).
-     * destinationFolder may be root or an album subdir.
-     */
-    private void processSingleFolder(File sourceFolder, File destinationFolder) throws Exception {
-        File[] mp3Files = sourceFolder.listFiles(f -> f.getName().toLowerCase().endsWith(".mp3"));
-        if (mp3Files == null || mp3Files.length == 0) {
-            log("(No MP3 files in: " + sourceFolder.getName() + ")");
-            return;
-        }
-
-        List<Track> tracks = new ArrayList<>();
-        for (File mp3 : mp3Files) {
-            try {
-                Mp3File mp3file = new Mp3File(mp3);
-                int trackNumber = getTrackNumber(mp3file);
-                tracks.add(new Track(trackNumber, mp3));
-            } catch (Exception e) {
-                log("⚠️ Skipping: " + mp3.getName() + " - " + e.getMessage());
-            }
-        }
-
-        tracks.sort(Comparator.comparingInt(t -> t.trackNumber));
-
-        if (!destinationFolder.exists()) {
-            destinationFolder.mkdirs();
-        }
-
-        for (Track track : tracks) {
-            String newName = track.file.getName();
-            File destFile = new File(destinationFolder, newName);
-            Files.copy(track.file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            log("✅ Copied: " + destinationFolder.getName() + "/" + newName);
-        }
-    }
-
-    private int getTrackNumber(Mp3File mp3) {
-        if (mp3.hasId3v2Tag()) {
-            String track = mp3.getId3v2Tag().getTrack();
-            return parseTrackNumber(track);
-        } else if (mp3.hasId3v1Tag()) {
-            String track = mp3.getId3v1Tag().getTrack();
-            return parseTrackNumber(track);
-        }
-        return 0;
-    }
-
-    private int parseTrackNumber(String track) {
-        if (track == null) return 0;
-        String[] parts = track.split("/");
-        String num = parts[0].replaceAll("\\D+", "");
-        try {
-            return Integer.parseInt(num);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+    private void updateProgress(int percent, String message) {
+        SwingUtilities.invokeLater(() -> {
+            progressBar.setValue(percent);
+            progressBar.setString(message);
+        });
     }
 
     private void log(String message) {
@@ -286,19 +198,33 @@ public class Mp3SorterUI extends JFrame {
         });
     }
 
-    private static class Track {
-        int trackNumber;
-        File file;
-        public Track(int trackNumber, File file) {
-            this.trackNumber = trackNumber;
-            this.file = file;
+    private List<File> findAlbums(File musicRoot) {
+        List<File> albums = new ArrayList<>();
+        if (musicRoot == null || !musicRoot.isDirectory()) return albums;
+
+        File[] artistDirs = musicRoot.listFiles(File::isDirectory);
+        if (artistDirs == null) return albums;
+
+        for (File artist : artistDirs) {
+            File[] albumDirs = artist.listFiles(File::isDirectory);
+            if (albumDirs == null) continue;
+
+            for (File album : albumDirs) {
+                albums.add(album);
+            }
         }
+
+        return albums;
     }
+
+
+
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            Mp3SorterUI app = new Mp3SorterUI();
-            app.setVisible(true);
+            Mp3SorterUI ui = new Mp3SorterUI();
+            ui.setVisible(true);
         });
     }
 }
