@@ -8,7 +8,7 @@ Built with **Java Swing**, the app includes a simple graphical interface for sel
 
 ## Preview
 
-![Screenshot of Mp3Sorter](https://raw.githubusercontent.com/joshuarreid/mp3Writer/main/img.png)
+![Screenshot of Mp3Sorter](https://raw.githubusercontent.com/joshuarreid/mp3Writer/main/img_1.png)
 
 ---
 
