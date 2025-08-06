@@ -16,11 +16,16 @@ public class Mp3Processor {
         int processed = 0;
 
         for (File album : albums) {
-            processSingleFolder(album, new File(destinationRoot, album.getName()), log, progressUpdater);
+            String artistName = (album.getParentFile() != null) ? album.getParentFile().getName() : "Unknown Artist";
+            File destFolder = new File(destinationRoot, artistName + File.separator + album.getName());
+
+            processSingleFolder(album, destFolder, log, progressUpdater);
+
             processed++;
             int progress = (int) (((double) processed / totalAlbums) * 100);
             progressUpdater.accept(progress, "Processing albums: " + progress + "%");
         }
+
     }
 
     public static void processSelectedAlbumsWithSubfolders(List<File> artistFolders, File destinationRoot,
@@ -37,12 +42,16 @@ public class Mp3Processor {
         int processed = 0;
 
         for (File album : albumFolders) {
-            File destFolder = new File(destinationRoot, album.getName());
+            String artistName = (album.getParentFile() != null) ? album.getParentFile().getName() : "Unknown Artist";
+            File destFolder = new File(destinationRoot, artistName + File.separator + album.getName());
+
             processSingleFolder(album, destFolder, log, progressUpdater);
+
             processed++;
             int progress = (int) (((double) processed / totalAlbums) * 100);
             progressUpdater.accept(progress, "Processing albums: " + progress + "%");
         }
+
     }
 
     private static void findAlbumFolders(File folder, List<File> albumFolders) {
