@@ -38,13 +38,16 @@ public class AlbumSelectionPanel extends JPanel {
         albumSizes.clear();
         currentSelectedSize = 0;
 
-        File[] subfolders = musicFolder.listFiles(File::isDirectory);
-        if (subfolders == null || subfolders.length == 0) {
+        List<File> albumFolders = new ArrayList<>();
+        findAlbumsRecursively(musicFolder, albumFolders);
+
+        if (albumFolders.isEmpty()) {
             add(new JLabel("No albums found."));
         } else {
-            for (File albumFolder : subfolders) {
+            albumFolders.sort(Comparator.comparing(File::getAbsolutePath));
+            for (File albumFolder : albumFolders) {
                 long size = Mp3Processor.getFolderSize(albumFolder);
-                String label = String.format("%s (%.2f MB)", albumFolder.getName(), size / (1024.0 * 1024.0));
+                String label = String.format("%s (%.2f MB)", musicFolder.toPath().relativize(albumFolder.toPath()), size / (1024.0 * 1024.0));
                 JCheckBox cb = new JCheckBox(label);
 
                 albumChecks.add(cb);
@@ -71,12 +74,14 @@ public class AlbumSelectionPanel extends JPanel {
                 add(cb);
             }
         }
+
         add(Box.createVerticalStrut(10));
         add(sizeLabel);
         revalidate();
         repaint();
         updateSizeLabel();
     }
+
 
     private void updateSizeLabel() {
         sizeLabel.setText(String.format("Total selected: %.2f MB / Max: %.2f MB",
@@ -98,4 +103,28 @@ public class AlbumSelectionPanel extends JPanel {
     public boolean hasAlbums() {
         return !albumChecks.isEmpty();
     }
+
+    private void findAlbumsRecursively(File folder, List<File> albumFolders) {
+        File[] contents = folder.listFiles();
+        if (contents == null) return;
+
+        boolean hasMp3 = false;
+        for (File f : contents) {
+            if (f.isFile() && f.getName().toLowerCase().endsWith(".mp3")) {
+                hasMp3 = true;
+                break;
+            }
+        }
+
+        if (hasMp3) {
+            albumFolders.add(folder);
+        } else {
+            for (File f : contents) {
+                if (f.isDirectory()) {
+                    findAlbumsRecursively(f, albumFolders);
+                }
+            }
+        }
+    }
+
 }
