@@ -23,6 +23,54 @@ public class Mp3Processor {
         }
     }
 
+    public static void processSelectedAlbumsWithSubfolders(List<File> artistFolders, File destinationRoot,
+                                             Consumer<String> log,
+                                             BiConsumer<Integer, String> progressUpdater) throws Exception {
+        List<File> albumFolders = new ArrayList<>();
+
+        for (File artistFolder : artistFolders) {
+            // Recursively find album folders containing mp3s
+            findAlbumFolders(artistFolder, albumFolders);
+        }
+
+        int totalAlbums = albumFolders.size();
+        int processed = 0;
+
+        for (File album : albumFolders) {
+            File destFolder = new File(destinationRoot, album.getName());
+            processSingleFolder(album, destFolder, log, progressUpdater);
+            processed++;
+            int progress = (int) (((double) processed / totalAlbums) * 100);
+            progressUpdater.accept(progress, "Processing albums: " + progress + "%");
+        }
+    }
+
+    private static void findAlbumFolders(File folder, List<File> albumFolders) {
+        File[] subFiles = folder.listFiles();
+
+        if (subFiles == null) return;
+
+        boolean containsMp3 = false;
+        for (File f : subFiles) {
+            if (f.isFile() && f.getName().toLowerCase().endsWith(".mp3")) {
+                containsMp3 = true;
+                break;
+            }
+        }
+
+        if (containsMp3) {
+            albumFolders.add(folder);
+        } else {
+            for (File f : subFiles) {
+                if (f.isDirectory()) {
+                    findAlbumFolders(f, albumFolders);
+                }
+            }
+        }
+    }
+
+
+
     public static void processSingleFolder(File sourceFolder, File destinationFolder,
                                            Consumer<String> log,
                                            BiConsumer<Integer, String> progressUpdater) throws Exception {

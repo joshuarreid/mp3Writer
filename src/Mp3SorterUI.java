@@ -171,7 +171,14 @@ public class Mp3SorterUI extends JFrame {
                     log("ℹ️ No subfolders detected; processing root files.");
                     Mp3Processor.processSingleFolder(source, dest, this::log, this::updateProgress);
                 } else {
-                    Mp3Processor.processSelectedAlbums(selectedAlbums, dest, this::log, this::updateProgress);
+                    boolean isArtistFolder = selectedAlbums.stream()
+                            .anyMatch(file -> file.isDirectory() && !containsMp3Files(file));
+
+                    if (isArtistFolder) {
+                        Mp3Processor.processSelectedAlbumsWithSubfolders(selectedAlbums, dest, this::log, this::updateProgress);
+                    } else {
+                        Mp3Processor.processSelectedAlbums(selectedAlbums, dest, this::log, this::updateProgress);
+                    }
                 }
                 log("✅ Done.");
                 progressBar.setValue(100);
@@ -183,6 +190,18 @@ public class Mp3SorterUI extends JFrame {
             }
         }).start();
     }
+
+    private boolean containsMp3Files(File folder) {
+        File[] files = folder.listFiles();
+        if (files == null) return false;
+        for (File f : files) {
+            if (f.isFile() && f.getName().toLowerCase().endsWith(".mp3")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     private void updateProgress(int percent, String message) {
         SwingUtilities.invokeLater(() -> {
