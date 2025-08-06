@@ -16,8 +16,7 @@ public class Mp3Processor {
         int processed = 0;
 
         for (File album : albums) {
-            String artistName = (album.getParentFile() != null) ? album.getParentFile().getName() : "Unknown Artist";
-            File destFolder = new File(destinationRoot, artistName + File.separator + album.getName());
+            File destFolder = new File(destinationRoot, album.getName());
 
             processSingleFolder(album, destFolder, log, progressUpdater);
 
@@ -25,6 +24,7 @@ public class Mp3Processor {
             int progress = (int) (((double) processed / totalAlbums) * 100);
             progressUpdater.accept(progress, "Processing albums: " + progress + "%");
         }
+
 
     }
 
@@ -42,8 +42,7 @@ public class Mp3Processor {
         int processed = 0;
 
         for (File album : albumFolders) {
-            String artistName = (album.getParentFile() != null) ? album.getParentFile().getName() : "Unknown Artist";
-            File destFolder = new File(destinationRoot, artistName + File.separator + album.getName());
+            File destFolder = new File(destinationRoot, album.getName());
 
             processSingleFolder(album, destFolder, log, progressUpdater);
 
@@ -51,6 +50,7 @@ public class Mp3Processor {
             int progress = (int) (((double) processed / totalAlbums) * 100);
             progressUpdater.accept(progress, "Processing albums: " + progress + "%");
         }
+
 
     }
 
